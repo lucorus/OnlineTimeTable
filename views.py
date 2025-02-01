@@ -2,17 +2,15 @@ import datetime
 import json
 
 from utils import (make_response, check_method, encode_string, decode_string, get_cursor, generate_token,
-                   login_required, request_user_username, admin_permission_required, get_data)
+                   login_required, admin_permission_required, Request)
 from database import get_user, create_timetable_instance
+from templates import main_page, login_user_page, register_user_page
 
 
 @login_required
-def main(client_socket, request, keep_alive):
-    username = request_user_username(request)
+def main(request: Request, client_socket):
     cursor = get_cursor()
-    user = get_user(cursor, username)
-    school, tracked = user[3], user[2]
-
+    school, tracked = request.user["school"], request.user["tracked"]
     now = datetime.datetime.now()
 
     date = now.strftime("%d-%m-%Y")
@@ -28,49 +26,14 @@ def main(client_socket, request, keep_alive):
     timetable = cursor.fetchall()
 
     main_page = generate_main_page(timetable)
-    response = make_response(200, main_page, keep_alive=keep_alive)
+    response = make_response(200, main_page, keep_alive=request.connection)
     client_socket.sendall(response.encode('utf-8'))
-    if not keep_alive:
+    if not request.connection:
         client_socket.close()
 
 
 def generate_main_page(timetable):
-    html_template = """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Timetable</title>
-        <style>
-            table {
-                width: 100%;
-                border-collapse: collapse;
-            }
-            table, th, td {
-                border: 1px solid black;
-            }
-            th, td {
-                padding: 10px;
-                text-align: left;
-            }
-        </style>
-    </head>
-    <body>
-        <h1>Timetable</h1>
-        <table>
-            <tr>
-                <th>UUID</th>
-                <th>Class</th>
-                <th>School</th>
-                <th>Date</th>
-                <th>Lessons</th>
-            </tr>
-            {timetable_rows}
-        </table>
-    </body>
-    </html>
-    """
+    html_template = main_page.page
 
     # Генерация строк таблицы для расписания
     timetable_rows = ""
@@ -91,38 +54,36 @@ def generate_main_page(timetable):
     return html_template.replace("{timetable_rows}", timetable_rows)
 
 
-def favicon(client_socket, request, keep_alive):
-    response = make_response(404, "Not Found", keep_alive=keep_alive)
+def favicon(request: Request, client_socket):
+    response = make_response(404, "Not Found", keep_alive=request.connection)
     client_socket.sendall(response.encode('utf-8'))
-    if not keep_alive:
+    if not request.connection:
         client_socket.close()
 
 
 @check_method(meth="POST")
+@login_required
 @admin_permission_required
-def create_timetable(client_socket, request, keep_alive):
+def create_timetable(client_socket, request: Request, data: str):
     try:
-        body = request.splitlines()[-1]
-        timetable_info = json.loads(body)
+        timetable_info = json.loads(data)
         timetable_info["lessons"] = json.loads(timetable_info["lessons"])
 
         create_timetable_instance(get_cursor(), **timetable_info)
 
-        response = make_response(200, "Timetable created successfully", keep_alive=keep_alive)
+        response = make_response(200, "Timetable created successfully", keep_alive=request.connection)
         client_socket.sendall(response.encode('utf-8'))
 
     except Exception as ex:
         print(ex)
-        response = make_response(400, "Bad request", keep_alive=keep_alive)
+        response = make_response(400, "Bad request")
         client_socket.sendall(response.encode('utf-8'))
 
 
 @check_method(meth="POST")
-def register(client_socket, request, keep_alive):
+def register(request: Request, client_socket):
     try:
-        # получаем данные в удобном формате
-        user_info = get_data(request)
-
+        user_info = request.data
         user_info["password"] = encode_string(user_info["password"])
 
         cursor = get_cursor()
@@ -132,39 +93,37 @@ def register(client_socket, request, keep_alive):
         )
         cursor.connection.commit()
 
-        response = make_response(200, "fiFAIN", keep_alive=keep_alive)
+        response = make_response(200, "fiFAIN", keep_alive=request.connection)
         client_socket.sendall(response.encode('utf-8'))
-
-        if not keep_alive:
-            client_socket.close()
     except Exception as ex:
         print(ex)
-        response = make_response(400, "Bad request", keep_alive=keep_alive)
+        response = make_response(400, "Bad request")
         client_socket.sendall(response.encode('utf-8'))
 
 
-def get_users(client_socket, request, keep_alive):
+def register_page(request: Request, client_socket):
+    response = make_response(200, register_user_page.page, keep_alive=request.connection)
+    client_socket.sendall(response.encode('utf-8'))
+
+
+def get_users(request: Request, client_socket):
     try:
         cursor = get_cursor()
         cursor.execute("SELECT * FROM users")
         users = cursor.fetchall()
-        response = make_response(200, f"\n {users}", keep_alive=keep_alive)
+        response = make_response(200, f"\n {users}", keep_alive=request.connection)
         client_socket.sendall(response.encode('utf-8'))
     except Exception as ex:
         print(ex)
-        response = make_response(400, "Bad request", keep_alive=keep_alive)
+        response = make_response(400, "Bad request")
         client_socket.sendall(response.encode('utf-8'))
 
 
 @check_method("POST")
-def login(client_socket, request, keep_alive):
+def login(request: Request, client_socket):
     try:
-        # получаем данные в удобном формате
-        user_info = get_data(request)
-
-        cursor = get_cursor()
-        user = get_user(cursor, user_info["username"])
-
+        user_info = request.data
+        user = get_user(get_cursor(), user_info["username"])
         password = decode_string(user[1])
         if password == user_info["password"]:
             # пользователь подтвердил, что он владелец аккаунта
@@ -173,38 +132,18 @@ def login(client_socket, request, keep_alive):
                 "Set-Cookie": f"Authorization={token}; Path=/; HttpOnly",
                 "Location": "/"
             }
-            response = make_response(200, "GOOD", keep_alive=keep_alive, headers=headers)
+            response = make_response(200, "GOOD", keep_alive=request.connection, headers=headers)
             client_socket.sendall(response.encode('utf-8'))
         else:
-            response = make_response(401, "Unauthorized", keep_alive=keep_alive)
+            response = make_response(401, "Unauthorized", keep_alive=request.connection)
             client_socket.sendall(response.encode('utf-8'))
 
     except Exception as ex:
         print(ex)
-        response = make_response(400, "Bad request", keep_alive=keep_alive)
+        response = make_response(400, "Bad request")
         client_socket.sendall(response.encode('utf-8'))
 
 
-def login_page(client_socket, request, keep_alive):
-    log_page = """
-    <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
-</head>
-<body>
-    <h2>Login</h2>
-    <form action="/login_user" method="post">
-        <label for="username">Username:</label><br>
-        <input type="text" id="username" name="username"><br><br>
-        <label for="password">Password:</label><br>
-        <input type="password" id="password" name="password"><br><br>
-        <input type="submit" value="Login">
-    </form>
-</body>
-</html>
-"""
-    response = make_response(200, log_page, keep_alive=keep_alive)
+def login_page(request: Request, client_socket):
+    response = make_response(200, login_user_page.page, keep_alive=request.connection)
     client_socket.sendall(response.encode('utf-8'))

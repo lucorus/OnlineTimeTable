@@ -32,4 +32,7 @@ def start_app(domain, port):
 
 
 if __name__ == "__main__":
-    start_app("localhost", 8083)
+    try:
+        start_app("localhost", 8083)
+    except:
+        start_app("localhost", 8084)

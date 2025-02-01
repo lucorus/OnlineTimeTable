@@ -7,6 +7,84 @@ import config
 from database import get_user
 
 
+def func(s: str, split_symbol: str = ";", del_key: bool = True) -> dict:
+    """
+    Данная функция должна разделять строки cookie и data на словарь, в котором будет храниться содержание данных строк
+    split_symbol - указывает после какого символа нужно разделять строку (нужно, потому что data разделяется знаком "&",
+    а cookie ";")
+    del_key - нужно ли удалять ключ (data просто находится в последней строке request, а cookie на 7 строке после слова
+    Cookie)
+    """
+    try:
+        if del_key:
+            # пропускаем первое слово в строке, которое обозначает чем является строка (cookie и т.п.)
+            s = s[s.find(" "):]
+        s = s.split(split_symbol)
+        ans = {}
+        for i in s:
+            ind = i.find("=")
+            key, value = i[:ind], i[ind+1:]
+
+            # если в конце и начале ключа иди значения есть " или ', то убираем их
+            if (value[0] == value[-1] and value[-1] == '"') or (value[0] == value[-1] and value[-1] == "'"):
+                value = value[1:-1]
+            if (key[0] == key[-1] and key[-1] == '"') or (key[0] == key[-1] and key[-1] == "'"):
+                key = key[1:-1]
+            if key[0] == " ":
+                key = key[1:]
+
+            ans[key] = value
+        return ans
+    except Exception as ex:
+        print(ex)
+        return {}
+
+
+class Request:
+
+    def __init__(self, request):
+        self.connection = "keep-alive" in request.lower()
+        request = request.splitlines()
+        method, url, _ = request[0].split()
+        self.method = method
+        self.url = url
+        self.data = func(request[-1], "&", False)
+        self.cookie = func(request[7])
+        self._request_user_username = None  # используется вместо показателя авторизирован ли пользователь или нет
+        self._request_user = {}
+
+    @property
+    def user(self) -> dict:
+        """
+        получаем данные текущего пользователя
+        """
+        if self._request_user == {}:
+            user = get_user(get_cursor(), self.is_login)
+            user = {
+                "username": user[0],
+                "password": user[1],
+                "tracked": user[2],
+                "school": user[3],
+                "is_admin": user[4]
+            }
+            self._request_user = user
+        return self._request_user
+
+    @property
+    def is_login(self):
+        """
+        получаем имя залогиненного пользователя
+        """
+        if self._request_user_username == None:
+            try:
+                username = token_is_valid(self.cookie["Authorization"])
+                self._request_user_username = username
+            except Exception as ex:
+                print(ex)
+                self._request_user_username = False
+        return self._request_user_username
+
+
 def make_response(status_code: int, content: str, content_type: str = "text/html", keep_alive: bool = False,
                   headers: dict = None):
     headers = headers or {}
@@ -24,8 +102,7 @@ def make_response(status_code: int, content: str, content_type: str = "text/html
 def check_method(meth: str):
     def decorator(func):
         def wrapper(*args, **kwargs):
-            method, url, _ = kwargs["request"].splitlines()[0].split()
-            if method == meth:
+            if kwargs["request"].method == meth:
                 return func(*args, **kwargs)
             else:
                 response = make_response(405, "Method Not Allowed", keep_alive=kwargs["keep_alive"])
@@ -38,48 +115,27 @@ def check_method(meth: str):
 def login_required(func):
     def wrapper(*args, **kwargs):
         try:
-            username = request_user_username(kwargs["request"])
-            if username:
+            request = kwargs["request"]
+            if request.is_login:
                 return func(*args, **kwargs)
             else:
-                response = make_response(401, "Unauthorized", keep_alive=kwargs["keep_alive"])
+                response = make_response(401, "Unauthorized", keep_alive=request.connection)
                 kwargs["client_socket"].sendall(response.encode('utf-8'))
         except Exception as ex:
             print(ex)
-            response = make_response(500, "Internal Server Error", keep_alive=kwargs["keep_alive"])
+            response = make_response(500, "Internal Server Error", keep_alive=False)
             kwargs["client_socket"].sendall(response.encode('utf-8'))
     return wrapper
 
 
 def admin_permission_required(func):
     def wrapper(*args, **kwargs):
-        username = request_user_username(kwargs["request"])
-        user = get_user(get_cursor(), username)
-        if user[-1]:
+        if kwargs["request"].user["is_admin"]:
             return func(*args, **kwargs)
         else:
             response = make_response(403, "Forbidden", keep_alive=kwargs["keep_alive"])
             kwargs["client_socket"].sendall(response.encode('utf-8'))
     return wrapper
-
-
-def request_user_username(request):
-    """
-    Получает имя пользователя, который отправляет запрос
-    """
-    try:
-        # получаем строку токена из куков
-        cookie = request.splitlines()[7]
-        cookie = cookie.split()
-        for item in cookie:
-            if item[:13] == "Authorization":
-                token = item[14:]
-                break
-
-        username = token_is_valid(token)
-        return username
-    except Exception as ex:
-        print(ex)
 
 
 def get_cursor():
@@ -134,20 +190,3 @@ def decode_string(s: str) -> str:
     decoded_bytes = decoded_bytes_with_salt[config.salt_len:]
     decoded_string = decoded_bytes.decode()
     return decoded_string
-
-
-def get_data(request):
-    """
-    Получает данные из data, пакуя их в словарь по их ключу в data
-    """
-    # получаем данные в удобном формате
-    data = request.splitlines()[-1]  # data находится на последней строчке request
-    data = data.split("&")
-
-    info = {}
-
-    for item in data:
-        key, value = item.split("=")
-        info[key] = value
-
-    return info
