@@ -1,12 +1,13 @@
 import socket
 
 from views import *
+from exceptions import Unauthorized, Forbidden, MethodNotAllowed
 from utils import Request
+from base_views import page_403, page_404, page_405, page_500, favicon
 
 
 def route_request(client_socket, request):
     req = Request(request)
-    keep_alive = "keep-alive" in request.lower()
 
     urls = {
         "/": main,
@@ -21,16 +22,23 @@ def route_request(client_socket, request):
     }
 
     if req.url in urls:
-        if req.url == "/create_timetable":
-            # для этой функции нужно отдельно посылать данные, потому что она работает с датой формата json
-            urls[req.url](client_socket=client_socket, request=req, data=request.splitlines()[-1])
-        else:
-            urls[req.url](request=req, client_socket=client_socket)
+        try:
+            if req.url == "/create_timetable":
+                # для этой функции нужно отдельно посылать данные, потому что она работает с датой формата json
+                urls[req.url](client_socket=client_socket, request=req, data=request.splitlines()[-1])
+            else:
+                urls[req.url](request=req, client_socket=client_socket)
+        except Unauthorized:
+            # если пользователь не авторизован, а страница этого требует, то перебрасываем его на страницу login'а
+            urls["/login"](request=req, client_socket=client_socket)
+        except Forbidden:
+            page_403(req, client_socket)
+        except MethodNotAllowed:
+            page_405(req, client_socket)
+        except:
+            page_500(req, client_socket)
     else:
-        response = make_response(404, "Not Found", keep_alive=keep_alive)
-        client_socket.sendall(response.encode('utf-8'))
-        if not keep_alive:
-            client_socket.close()
+        page_404(req, client_socket)
 
 
 def handle_client(client_socket, address):

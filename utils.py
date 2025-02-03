@@ -5,6 +5,7 @@ import sqlite3
 
 import config
 from database import get_user
+from exceptions import Unauthorized, InternalServerError, Forbidden, MethodNotAllowed
 
 
 def func(s: str, split_symbol: str = ";", del_key: bool = True) -> dict:
@@ -35,8 +36,11 @@ def func(s: str, split_symbol: str = ";", del_key: bool = True) -> dict:
 
             ans[key] = value
         return ans
+    except IndexError:
+        # если отправляются запросы без cookie/data, то будет возникать эта ошибка
+        return {}
     except Exception as ex:
-        print(ex)
+        print(f"func error: {ex}")
         return {}
 
 
@@ -100,41 +104,38 @@ def make_response(status_code: int, content: str, content_type: str = "text/html
 
 
 def check_method(meth: str):
-    def decorator(func):
+    def decorator(function):
         def wrapper(*args, **kwargs):
             if kwargs["request"].method == meth:
-                return func(*args, **kwargs)
+                return function(*args, **kwargs)
             else:
-                response = make_response(405, "Method Not Allowed", keep_alive=kwargs["keep_alive"])
-                kwargs["client_socket"].sendall(response.encode('utf-8'))
-                return response
+                raise MethodNotAllowed(kwargs["request"].method)
         return wrapper
     return decorator
 
 
-def login_required(func):
+def login_required(function):
     def wrapper(*args, **kwargs):
         try:
             request = kwargs["request"]
             if request.is_login:
-                return func(*args, **kwargs)
+                return function(*args, **kwargs)
             else:
-                response = make_response(401, "Unauthorized", keep_alive=request.connection)
-                kwargs["client_socket"].sendall(response.encode('utf-8'))
+                raise Unauthorized
+        except Unauthorized:
+            raise Unauthorized
         except Exception as ex:
-            print(ex)
-            response = make_response(500, "Internal Server Error", keep_alive=False)
-            kwargs["client_socket"].sendall(response.encode('utf-8'))
+            print(f"login_required error: {ex}")
+            raise InternalServerError
     return wrapper
 
 
-def admin_permission_required(func):
+def admin_permission_required(function):
     def wrapper(*args, **kwargs):
         if kwargs["request"].user["is_admin"]:
-            return func(*args, **kwargs)
+            return function(*args, **kwargs)
         else:
-            response = make_response(403, "Forbidden", keep_alive=kwargs["keep_alive"])
-            kwargs["client_socket"].sendall(response.encode('utf-8'))
+            raise Forbidden
     return wrapper
 
 

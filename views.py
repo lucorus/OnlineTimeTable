@@ -1,6 +1,8 @@
 import datetime
 import json
 
+from base_views import page_400
+from exceptions import Unauthorized
 from utils import (make_response, check_method, encode_string, decode_string, get_cursor, generate_token,
                    login_required, admin_permission_required, Request)
 from database import get_user, create_timetable_instance
@@ -25,8 +27,8 @@ def main(request: Request, client_socket):
         """, (school, ))
     timetable = cursor.fetchall()
 
-    main_page = generate_main_page(timetable)
-    response = make_response(200, main_page, keep_alive=request.connection)
+    page = generate_main_page(timetable)
+    response = make_response(200, page, keep_alive=request.connection)
     client_socket.sendall(response.encode('utf-8'))
     if not request.connection:
         client_socket.close()
@@ -52,13 +54,6 @@ def generate_main_page(timetable):
         """
 
     return html_template.replace("{timetable_rows}", timetable_rows)
-
-
-def favicon(request: Request, client_socket):
-    response = make_response(404, "Not Found", keep_alive=request.connection)
-    client_socket.sendall(response.encode('utf-8'))
-    if not request.connection:
-        client_socket.close()
 
 
 @check_method(meth="POST")
@@ -97,8 +92,7 @@ def register(request: Request, client_socket):
         client_socket.sendall(response.encode('utf-8'))
     except Exception as ex:
         print(ex)
-        response = make_response(400, "Bad request")
-        client_socket.sendall(response.encode('utf-8'))
+        page_400(request, client_socket)
 
 
 def register_page(request: Request, client_socket):
@@ -115,8 +109,7 @@ def get_users(request: Request, client_socket):
         client_socket.sendall(response.encode('utf-8'))
     except Exception as ex:
         print(ex)
-        response = make_response(400, "Bad request")
-        client_socket.sendall(response.encode('utf-8'))
+        page_400(request, client_socket)
 
 
 @check_method("POST")
@@ -135,13 +128,11 @@ def login(request: Request, client_socket):
             response = make_response(200, "GOOD", keep_alive=request.connection, headers=headers)
             client_socket.sendall(response.encode('utf-8'))
         else:
-            response = make_response(401, "Unauthorized", keep_alive=request.connection)
-            client_socket.sendall(response.encode('utf-8'))
+            raise Unauthorized
 
     except Exception as ex:
         print(ex)
-        response = make_response(400, "Bad request")
-        client_socket.sendall(response.encode('utf-8'))
+        page_400(request, client_socket)
 
 
 def login_page(request: Request, client_socket):
