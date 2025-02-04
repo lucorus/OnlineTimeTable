@@ -1,4 +1,5 @@
 import socket
+import urllib.parse
 
 from views import *
 from exceptions import Unauthorized, Forbidden, MethodNotAllowed
@@ -59,6 +60,7 @@ def handle_client(client_socket, address):
                     break
 
                 request = request.decode("utf-8")
+                request = urllib.parse.unquote(request)
                 route_request(client_socket, request)
 
         except socket.error as e:
