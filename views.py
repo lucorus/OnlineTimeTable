@@ -4,8 +4,8 @@ import json
 from base_views import page_400
 from exceptions import Unauthorized
 from utils import (make_response, check_method, encode_string, decode_string, get_cursor, generate_token,
-                   login_required, admin_permission_required, Request)
-from database import get_user, create_timetable_instance
+                   login_required, admin_permission_required, Request, generate_uuid)
+from database import get_user, create_timetable_instance, get_schools, get_classes
 from templates import main_page, login_user_page, register_user_page
 
 
@@ -138,3 +138,42 @@ def login(request: Request, client_socket):
 def login_page(request: Request, client_socket):
     response = make_response(200, login_user_page.page, keep_alive=request.connection)
     client_socket.sendall(response.encode('utf-8'))
+
+
+def list_schools(request: Request, client_socket):
+    try:
+        schools = get_schools(get_cursor(), request.data.get("city"))
+        response = make_response(200, str(schools), "text/json", keep_alive=request.connection)
+        client_socket.sendall(response.encode("utf-8"))
+    except Exception as e:
+        print(f"list_schools {e}")
+
+
+def list_classes(request: Request, client_socket):
+    classes = get_classes(get_cursor(), request.data.get("school_uuid"))
+    response = make_response(200, str(classes), "text/json", keep_alive=request.connection)
+    client_socket.sendall(response.encode("utf-8"))
+
+
+def create_school(request: Request, client_socket):
+    cursor = get_cursor()
+    cursor.execute("INSERT INTO school (uuid, title, city) VALUES(?, ?, ?)",
+                   (generate_uuid(), request.data["title"], request.data["city"]))
+    cursor.connection.commit()
+    response = make_response(200, "success!", "text/json", keep_alive=request.connection)
+    client_socket.sendall(response.encode("utf-8"))
+
+
+def create_user(request: Request, client_socket):
+    cursor = get_cursor()
+    cursor.execute(
+        """
+        INSERT INTO users (username, password, tracked, school, is_admin) 
+        VALUES(?, ?, ?, ?, ?)
+        """,
+        (request.data["username"], encode_string(request.data["password"]), request.data.get("tracked"),
+         request.data["school"], request.data.get("is_admin"))
+    )
+    cursor.connection.commit()
+    response = make_response(200, "success!", "text/json", keep_alive=request.connection)
+    client_socket.sendall(response.encode("utf-8"))

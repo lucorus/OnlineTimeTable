@@ -21,7 +21,7 @@ cursor.execute(
 """
 tracked - строка, в которой содержится наименование класса расписание, которого отслеживает данный пользователь
 если значение не указано, то выводятся расписание для всех классов
-school - номер школы для которой нужно выводить расписание данному пользователю
+password - пароль пользователя, хранящийся в закодированном варианте
 """
 cursor.execute(
     """
@@ -57,8 +57,9 @@ cursor.execute(
     CREATE TABLE IF NOT EXISTS lesson (
         uuid TEXT PRIMARY KEY,
         title TEXT,
-        school INT,
-        cabinet TEXT
+        school TEXT,
+        cabinet TEXT,
+        FOREIGN KEY (school) REFERENCES school(uuid)
     )
     """
 )
@@ -92,6 +93,19 @@ def get_user(cursor, username: str) -> str:
     cursor.execute("SELECT * FROM users WHERE username = ?", (username, ))
     user_info = cursor.fetchone()
     return user_info
+
+
+def get_schools(cursor, city: str = None) -> list:
+    if city:
+        cursor.execute("SELECT * FROM school WHERE city = ?", (city, ))
+    else:
+        cursor.execute("SELECT * FROM school")
+    return cursor.fetchall()
+
+
+def get_classes(cursor, school_uuid: str) -> list:
+    cursor.execute("SELECT class FROM timetable WHERE school = ?", (school_uuid, ))
+    return cursor.fetchall()
 
 
 def create_timetable_instance(cursor, class_name, school, lessons):
