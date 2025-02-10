@@ -27,17 +27,19 @@ def func(s: str, split_symbol: str = ";", del_key: bool = True) -> dict:
             ind = i.find("=")
             try:
                 key, value = i[:ind], i[ind+1:]
-            except:
+            except IndexError:
                 # если значение для данного ключа нет, то просто устанавливаем для него None
-                key, value = i[:ind], None
+                key, value = i[0], None
 
-            # если в конце и начале ключа иди значения есть " или ', то убираем их
-            if (value[0] == value[-1] and value[-1] == '"') or (value[0] == value[-1] and value[-1] == "'"):
-                value = value[1:-1]
-            if (key[0] == key[-1] and key[-1] == '"') or (key[0] == key[-1] and key[-1] == "'"):
-                key = key[1:-1]
-            if key[0] == " ":
-                key = key[1:]
+            if value:
+                # если в конце и начале ключа иди значения есть " или ', то убираем их
+                if (value[0] == value[-1] and value[-1] == '"') or (value[0] == value[-1] and value[-1] == "'"):
+                    value = value[1:-1]
+            if key:
+                if (key[0] == key[-1] and key[-1] == '"') or (key[0] == key[-1] and key[-1] == "'"):
+                    key = key[1:-1]
+                if key[0] == " ":
+                    key = key[1:]
 
             ans[key] = value
         return ans
@@ -55,9 +57,13 @@ class Request:
         self.connection = "keep-alive" in request.lower()
         request = request.splitlines()
         method, url, _ = request[0].split()
+        data_str = request[-1]  # строчка, в которой содержится data
+        if "?" in url:
+            data_str = url[url.index("?")+1:]  # если data передана в url запроса, то отмечаем её, как data
+            url = url[:url.index("?")]
         self.method = method
         self.url = url.split("/")[1:]
-        self.data = func(request[-1], "&", False)
+        self.data = func(data_str, "&", False)
         self.cookie = func(request[7])
         self._request_user_username = None  # используется вместо показателя авторизирован ли пользователь или нет
         self._request_user = {}
@@ -95,9 +101,7 @@ class Request:
 
 
 def generate_uuid() -> str:
-    a = str(uuid.uuid4())
-    print(f"a = {a}")
-    return a
+    return str(uuid.uuid4())
 
 
 def make_response(status_code: int, content: str, content_type: str = "text/html", keep_alive: bool = False,

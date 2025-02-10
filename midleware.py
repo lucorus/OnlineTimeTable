@@ -18,10 +18,11 @@ def route_request(client_socket, request):
         "users": get_users,
         "login": login_page,
         "login_user": login,
-        "create_timetable": create_timetable,
 
         "create_school": create_school,
         "create_users": create_user,
+
+        "delete_object": delete_object_view,
 
 
         "classes": list_classes,

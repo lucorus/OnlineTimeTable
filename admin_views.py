@@ -1,5 +1,5 @@
 from base_views import page_404
-from utils import (make_response, get_cursor, Request)
+from utils import (make_response, get_cursor, Request, login_required, admin_permission_required)
 from templates import admin_main_page, model_page, model_create_page
 
 
@@ -7,8 +7,8 @@ from templates import admin_main_page, model_page, model_create_page
 models = ["school", "users", "timetable", "lesson", "timetable_object"]
 
 
-# @login_required
-# @admin_permission_required
+@login_required
+@admin_permission_required
 def admin_route_request(request: Request, client_socket):
     urls = {
         "": admin_main,

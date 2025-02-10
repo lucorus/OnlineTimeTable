@@ -108,17 +108,11 @@ def get_classes(cursor, school_uuid: str) -> list:
     return cursor.fetchall()
 
 
-def create_timetable_instance(cursor, class_name, school, lessons):
-    table_uuid = str(uuid.uuid4())
-    now = datetime.datetime.now()
-    date = now.strftime("%d-%m-%Y")
-    lessons_json = json.dumps(lessons)
+def get_school(cursor, uuid: str) -> tuple:
+    cursor.execute("SELECT * FROM school WHERE uuid = ?", (uuid, ))
+    return cursor.fetchone()
 
-    cursor.execute(
-        """
-        INSERT INTO timetable (uuid, class, school, date, lessons)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (table_uuid, class_name, school, date, lessons_json)
-    )
+
+def delete_object(cursor, field_name, field_value, table_name) -> None:
+    cursor.execute(f"DELETE FROM {table_name} WHERE {field_name} = ?", (field_value, ))
     cursor.connection.commit()
