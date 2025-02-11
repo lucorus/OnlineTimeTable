@@ -1,4 +1,27 @@
-page = html_template = """
+import json
+
+
+def generate_main_page(timetable):
+    # Генерация строк таблицы для расписания
+    timetable_rows = ""
+    for entry in timetable:
+        uuid, class_name, school, date, lessons_json = entry
+        lessons = json.loads(lessons_json)
+        lessons_html = "<br>".join([f"{lesson['subject']} ({lesson['time']})" for lesson in lessons])
+        timetable_rows += f"""
+        <tr>
+            <td>{uuid}</td>
+            <td>{class_name}</td>
+            <td>{school}</td>
+            <td>{date}</td>
+            <td>{lessons_html}</td>
+        </tr>
+        """
+
+    return html_template.replace("{timetable_rows}", timetable_rows)
+
+
+html_template = """
     <!DOCTYPE html>
     <html lang="en">
     <head>

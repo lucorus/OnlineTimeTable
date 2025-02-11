@@ -1,7 +1,4 @@
-import datetime
-import json
 import sqlite3
-import uuid
 
 connection = sqlite3.connect("database.db")
 cursor = connection.cursor()
@@ -109,10 +106,23 @@ def get_classes(cursor, school_uuid: str) -> list:
 
 
 def get_school(cursor, uuid: str) -> tuple:
-    cursor.execute("SELECT * FROM school WHERE uuid = ?", (uuid, ))
+    cursor.execute("SELECT 1 FROM school WHERE uuid = ?", (uuid, ))
     return cursor.fetchone()
 
 
+def get_lesson(cursor, lesson_uuid):
+    cursor.execute("SELECT 1 FROM lesson WHERE uuid = ?", (lesson_uuid, ))
+    return cursor.fetchone() is not None
+
+
+def get_timetable(cursor, timetable_uuid):
+    cursor.execute("SELECT 1 FROM timetable WHERE uuid = ?", (timetable_uuid, ))
+    return cursor.fetchone() is not None
+
+
 def delete_object(cursor, field_name, field_value, table_name) -> None:
+    """
+    Удаляет объект из таблицы table_name, у которого столбец с названием field_name равен field_value
+    """
     cursor.execute(f"DELETE FROM {table_name} WHERE {field_name} = ?", (field_value, ))
     cursor.connection.commit()

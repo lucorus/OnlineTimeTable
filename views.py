@@ -1,12 +1,11 @@
 import datetime
-import json
 
 from base_views import page_400
 from exceptions import Unauthorized
 from utils import (make_response, check_method, encode_string, decode_string, get_cursor, generate_token,
                    login_required, admin_permission_required, Request, generate_uuid)
-from database import get_user, get_schools, get_classes, get_school, delete_object
-from templates import main_page, login_user_page, register_user_page
+from database import get_user, get_schools, get_classes, get_school, delete_object, get_lesson, get_timetable
+from templates import login_user_page, register_user_page, main_page
 
 
 @login_required
@@ -27,33 +26,11 @@ def main(request: Request, client_socket):
         """, (school, ))
     timetable = cursor.fetchall()
 
-    page = generate_main_page(timetable)
+    page = main_page.generate_main_page(timetable)
     response = make_response(200, page, keep_alive=request.connection)
     client_socket.sendall(response.encode('utf-8'))
     if not request.connection:
         client_socket.close()
-
-
-def generate_main_page(timetable):
-    html_template = main_page.page
-
-    # Генерация строк таблицы для расписания
-    timetable_rows = ""
-    for entry in timetable:
-        uuid, class_name, school, date, lessons_json = entry
-        lessons = json.loads(lessons_json)
-        lessons_html = "<br>".join([f"{lesson['subject']} ({lesson['time']})" for lesson in lessons])
-        timetable_rows += f"""
-        <tr>
-            <td>{uuid}</td>
-            <td>{class_name}</td>
-            <td>{school}</td>
-            <td>{date}</td>
-            <td>{lessons_html}</td>
-        </tr>
-        """
-
-    return html_template.replace("{timetable_rows}", timetable_rows)
 
 
 @check_method(meth="POST")
@@ -137,10 +114,13 @@ def list_classes(request: Request, client_socket):
 
 
 @check_method("POST")
+@login_required
+@admin_permission_required
 def create_school(request: Request, client_socket):
     cursor = get_cursor()
     cursor.execute("INSERT INTO school (uuid, title, city) VALUES(?, ?, ?)",
-                   (generate_uuid(), request.data["title"], request.data["city"]))
+                   (generate_uuid(), request.data["title"], request.data["city"])
+                   )
     cursor.connection.commit()
     response = make_response(200, "success!", "text/json", keep_alive=request.connection)
     client_socket.sendall(response.encode("utf-8"))
@@ -149,36 +129,76 @@ def create_school(request: Request, client_socket):
 @check_method("POST")
 def create_user(request: Request, client_socket):
     cursor = get_cursor()
-    if not get_school(request.data["school"]):
+    if not get_school(cursor, request.data["school"]):
         return page_400(request, client_socket)
-    cursor.execute(
-        """
-        INSERT INTO users (username, password, tracked, school, is_admin) 
-        VALUES(?, ?, ?, ?, ?)
-        """,
-        (request.data["username"], encode_string(request.data["password"]), request.data.get("tracked"),
-         request.data["school"], request.data.get("is_admin"))
-    )
+    cursor.execute("INSERT INTO users (username, password, tracked, school, is_admin) VALUES(?, ?, ?, ?, ?)",
+                   (request.data["username"], encode_string(request.data["password"]), request.data.get("tracked"),
+                    request.data["school"], request.data.get("is_admin"))
+                   )
     cursor.connection.commit()
     response = make_response(200, "success!", "text/json", keep_alive=request.connection)
     client_socket.sendall(response.encode("utf-8"))
 
 
 @check_method("POST")
+@login_required
+@admin_permission_required
 def create_lesson(request: Request, client_socket):
     cursor = get_cursor()
     if not get_school(cursor, request.data["school"]):
         return page_400(request, client_socket)
-    cursor.execute(
-        "INSERT INTO lesson (uuid, title, school, cabinet) WITH VALUES(?, ?, ?, ?)",
-        (request.data["uuid"], request.data["title"], request.data["school"], request.data["cabinet"])
-    )
+    cursor.execute("INSERT INTO lesson (uuid, title, school, cabinet) VALUES(?, ?, ?, ?)",
+                   (generate_uuid(), request.data["title"], request.data["school"], request.data["cabinet"])
+                   )
+    cursor.connection.commit()
     response = make_response(201, "success", "text/json", request.connection)
-    client_socket.send_all(response.encode("utf-8"))
+    client_socket.sendall(response.encode("utf-8"))
 
 
-# @login_required
+@check_method("POST")
+@login_required
+@admin_permission_required
+def create_timetable(request: Request, client_socket):
+    cursor = get_cursor()
+    if not get_school(cursor, request.data["school"]):
+        return page_400(request, client_socket)
+
+    date_str = request.data["date"]
+    try:
+        date_obj = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+        formatted_date = date_obj.strftime("%Y-%m-%d")
+    except ValueError:
+        return page_400(request, client_socket)
+
+    cursor.execute("INSERT INTO timetable (uuid, class, school, date) VALUES(?, ?, ?, ?)",
+                   (generate_uuid(), request.data["class"], request.data["school"], formatted_date)
+                   )
+    cursor.connection.commit()
+    response = make_response(201, "success", "text/json", request.connection)
+    client_socket.sendall(response.encode("utf-8"))
+
+
+@check_method("POST")
+@login_required
+@admin_permission_required
+def create_timetable_object(request: Request, client_socket):
+    cursor = get_cursor()
+    if not get_lesson(cursor, request.data["lesson"]):
+        return page_400(request, client_socket)
+    if not get_timetable(cursor, request.data["timetable"]):
+        return page_400(request, client_socket)
+    cursor.execute("INSERT INTO timetable_object (uuid, timetable, time, lesson, cabinet) VALUES(?, ?, ?, ?, ?)",
+                   (generate_uuid(), request.data["timetable"], request.data["time"], request.data["lesson"],
+                    request.data.get("cabinet"))
+                   )
+    cursor.connection.commit()
+    response = make_response(201, "success", "text/json", request.connection)
+    client_socket.sendall(response.encode("utf-8"))
+
+
 @check_method("POST")  # использую post, потому что формочка почему-то отказывается кидать запрос методом delete
+@login_required
+@admin_permission_required
 def delete_object_view(request: Request, client_socket):
     cursor = get_cursor()
     delete_object(cursor=cursor, field_name=request.data["field_name"], field_value=request.data["field_value"],

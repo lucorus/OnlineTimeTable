@@ -1,7 +1,7 @@
 def generate_page(models):
     tabs_html = ""
     for model in models:
-        tab_html = f'<li><a href="/admin/{model}/" class="tab">{model.capitalize()}</a></li>'
+        tab_html = f'<li><a href="/admin/{model}" class="tab">{model.capitalize()}</a></li>'
         tabs_html += tab_html
 
     page = f"""

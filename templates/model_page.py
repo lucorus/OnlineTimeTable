@@ -105,6 +105,7 @@ def generate_model_page(model_title, objects):
     <body>
         <div class="container">
             <h1>Администраторская панель - {model_title}</h1>
+            <a href="/admin/{model_title}/create">Создать</a>
             <table>
                 <thead>
                     <tr>

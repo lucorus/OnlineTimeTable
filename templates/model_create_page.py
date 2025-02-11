@@ -14,12 +14,14 @@ def generate_model_create_page(model_title, columns):
         if column_name in ["tracked", "cabinet"]:
             column_required = False
 
-        if "TEXT" in column_type or "DATE" in column_type:
+        if "TEXT" in column_type:
             field_html = f'<label for="{column_name}">{column_name.capitalize()}</label><input type="text" id="{column_name}" name="{column_name}" {"required" if column_required else ""}>'
         elif "INT" in column_type:
             field_html = f'<label for="{column_name}">{column_name.capitalize()}</label><input type="number" id="{column_name}" name="{column_name}" {"required" if column_required else ""}>'
         elif "BOOL" in column_type:
             field_html = f'<label for="{column_name}">{column_name.capitalize()}</label><select id="{column_name}" name="{column_name}" {"required" if column_required else ""}><option value="TRUE">TRUE</option><option value="FALSE">FALSE</option></select>'
+        elif "DATE" in column_type:
+            field_html = f'<label for="{column_name}">{column_name.capitalize()}</label><input type="date" id="{column_name}" name="{column_name}" {"required" if column_required else ""}>'
         else:
             field_html = f'<label for="{column_name}">{column_name.capitalize()}</label><input type="text" id="{column_name}" name="{column_name}" {"required" if column_required else ""}>'
         fields_html += field_html

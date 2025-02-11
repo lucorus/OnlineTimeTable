@@ -21,9 +21,11 @@ def route_request(client_socket, request):
 
         "create_school": create_school,
         "create_users": create_user,
+        "create_lesson": create_lesson,
+        "create_timetable": create_timetable,
+        "create_timetable_object": create_timetable_object,
 
         "delete_object": delete_object_view,
-
 
         "classes": list_classes,
         "schools": list_schools,

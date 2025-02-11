@@ -51,20 +51,39 @@ def func(s: str, split_symbol: str = ";", del_key: bool = True) -> dict:
         return {}
 
 
+def parse_request(request: list) -> dict:
+    """
+    Делаем из request'а словарь
+    """
+    request_dict = {}
+
+    for line in request:
+        # Разделяем строку на ключ и значение
+        if ':' in line:
+            key, value = line.split(':', 1)
+            request_dict[key.strip()] = value.strip()
+        else:
+            # Если в строке нет ':', сохраняем её как есть
+            request_dict[line.strip()] = ''
+
+    return request_dict
+
+
 class Request:
 
     def __init__(self, request):
-        self.connection = "keep-alive" in request.lower()
         request = request.splitlines()
-        method, url, _ = request[0].split()
         data_str = request[-1]  # строчка, в которой содержится data
+        method, url, _ = request[0].split()
+        request = parse_request(request[1:])
+        self.connection = "keep-alive" if request.get("Connection") == "keep-alive" else False
         if "?" in url:
             data_str = url[url.index("?")+1:]  # если data передана в url запроса, то отмечаем её, как data
             url = url[:url.index("?")]
         self.method = method
         self.url = url.split("/")[1:]
         self.data = func(data_str, "&", False)
-        self.cookie = func(request[7])
+        self.cookie = func(request.get("Cookie"))
         self._request_user_username = None  # используется вместо показателя авторизирован ли пользователь или нет
         self._request_user = {}
 
@@ -95,7 +114,7 @@ class Request:
                 username = token_is_valid(self.cookie["Authorization"])
                 self._request_user_username = username
             except Exception as ex:
-                print(ex)
+                print(f"error in is_login: {ex}")
                 self._request_user_username = False
         return self._request_user_username
 
@@ -132,6 +151,8 @@ def check_method(meth: str):
 def login_required(function):
     def wrapper(*args, **kwargs):
         try:
+            # print(f"kwargs is {kwargs}")
+            # print("request is:", str(kwargs['request']))
             request = kwargs["request"]
             if request.is_login:
                 return function(*args, **kwargs)
