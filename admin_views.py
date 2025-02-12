@@ -1,5 +1,5 @@
 from base_views import page_404
-from utils import (make_response, get_cursor, Request, login_required, admin_permission_required)
+from utils import (make_response, get_cursor, Request, login_required, admin_permission_required, decode_string)
 from templates import admin_main_page, model_page, model_create_page
 
 
@@ -51,11 +51,20 @@ def create_page(request: Request, client_socket):
         page_404(request, client_socket)
         return
 
+    instance = None
     cursor = get_cursor()
-    cursor.execute(f"SELECT * FROM {model_title} LIMIT 0")
-    columns = cursor.description
-    columns = [i[0] for i in columns]
+    if request.data.get("field_value"):
+        # если в запросе есть такое поле => это запрос на изменение записи
+        cursor.execute(f"SELECT * FROM {model_title} WHERE {request.data['field_name']} = ?",
+                       (request.data["field_value"], )
+                       )
+        instance = cursor.fetchone()
+        if model_title == "users":
+            # если это модель пользователя, то нужно декодировать пароль
+            instance = (instance[0], decode_string(instance[1]), *instance[1:])
 
-    page = model_create_page.generate_model_create_page(model_title, columns)
+    cursor.execute(f"SELECT * FROM {model_title} LIMIT 0")
+    columns = [i[0] for i in cursor.description]
+    page = model_create_page.generate_model_create_page(model_title, columns, instance)
     response = make_response(200, page, keep_alive=request.connection)
     client_socket.sendall(response.encode("utf-8"))

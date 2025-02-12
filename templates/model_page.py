@@ -21,9 +21,10 @@ def generate_model_page(model_title, objects):
                 <input type="hidden" name="field_name" value="{headers_html[4:headers_html.index('</th>')]}">
                 <button type="submit" class="delete-btn">Удалить</button>
             </form>
-            <form action="/edit_object" method="post" style="display:inline;">
+            <form action="/admin/{model_title}/create" method="get" style="display:inline;">
                 <input type="hidden" name="table_name" value="{model_title}">
-                <input type="hidden" name="primary_key" value="{primary_key}">
+                <input type="hidden" name="field_value" value="{primary_key}">
+                <input type="hidden" name="field_name" value="{headers_html[4:headers_html.index('</th>')]}">
                 <button type="submit" class="edit-btn">Изменить</button>
             </form>
         </td>

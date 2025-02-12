@@ -25,6 +25,8 @@ def route_request(client_socket, request):
         "create_timetable": create_timetable,
         "create_timetable_object": create_timetable_object,
 
+        "update_users": update_user,
+
         "delete_object": delete_object_view,
 
         "classes": list_classes,

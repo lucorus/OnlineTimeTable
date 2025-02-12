@@ -1,4 +1,7 @@
-def generate_model_create_page(model_title, columns):
+from datetime import datetime
+
+
+def generate_model_create_page(model_title, columns, instance):
     fields_html = ""
     for column in columns:
         column_name = column
@@ -14,16 +17,31 @@ def generate_model_create_page(model_title, columns):
         if column_name in ["tracked", "cabinet"]:
             column_required = False
 
+        # Получаем значение поля из экземпляра, если оно существует
+        field_value = ""
+        if instance:
+            field_value = instance[columns.index(column_name)]
+
         if "TEXT" in column_type:
-            field_html = f'<label for="{column_name}">{column_name.capitalize()}</label><input type="text" id="{column_name}" name="{column_name}" {"required" if column_required else ""}>'
+            field_html = f'<label for="{column_name}">{column_name.capitalize()}</label><input type="text" id="{column_name}" name="{column_name}" value="{field_value}" {"required" if column_required else ""}>'
         elif "INT" in column_type:
-            field_html = f'<label for="{column_name}">{column_name.capitalize()}</label><input type="number" id="{column_name}" name="{column_name}" {"required" if column_required else ""}>'
+            field_html = f'<label for="{column_name}">{column_name.capitalize()}</label><input type="number" id="{column_name}" name="{column_name}" value="{field_value}" {"required" if column_required else ""}>'
         elif "BOOL" in column_type:
-            field_html = f'<label for="{column_name}">{column_name.capitalize()}</label><select id="{column_name}" name="{column_name}" {"required" if column_required else ""}><option value="TRUE">TRUE</option><option value="FALSE">FALSE</option></select>'
+            selected_true = "selected" if field_value == "TRUE" else ""
+            selected_false = "selected" if field_value == "FALSE" else ""
+            field_html = f'<label for="{column_name}">{column_name.capitalize()}</label><select id="{column_name}" name="{column_name}" {"required" if column_required else ""}><option value="TRUE" {selected_true}>TRUE</option><option value="FALSE" {selected_false}>FALSE</option></select>'
         elif "DATE" in column_type:
-            field_html = f'<label for="{column_name}">{column_name.capitalize()}</label><input type="date" id="{column_name}" name="{column_name}" {"required" if column_required else ""}>'
+            # Преобразование формата даты для отображения
+            date_value = ""
+            if field_value:
+                try:
+                    date_obj = datetime.strptime(field_value, "%Y-%m-%d")
+                    date_value = date_obj.strftime("%Y-%m-%d")
+                except ValueError:
+                    date_value = ""
+            field_html = f'<label for="{column_name}">{column_name.capitalize()}</label><input type="date" id="{column_name}" name="{column_name}" value="{date_value}" {"required" if column_required else ""}>'
         else:
-            field_html = f'<label for="{column_name}">{column_name.capitalize()}</label><input type="text" id="{column_name}" name="{column_name}" {"required" if column_required else ""}>'
+            field_html = f'<label for="{column_name}">{column_name.capitalize()}</label><input type="text" id="{column_name}" name="{column_name}" value="{field_value}" {"required" if column_required else ""}>'
         fields_html += field_html
 
     page = f"""
@@ -84,8 +102,9 @@ def generate_model_create_page(model_title, columns):
     </head>
     <body>
         <div class="container">
-            <h1>Создать новую запись - {model_title}</h1>
-            <form id="createForm" action="/create_{model_title}" method="post">
+            <h1>{f'Создать новую запись - {model_title}' if not instance else f'Изменить запись {instance[0]}'}</h1>
+            <form id="createForm" action="{f'/update_{model_title}' if instance else f'/create_{model_title}'}" method="post">
+                {'' if not instance else f'<input type="hidden" name="old_pk" value="{instance[0]}">'}
                 {fields_html}
                 <button type="submit">Создать</button>
             </form>

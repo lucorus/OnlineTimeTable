@@ -151,14 +151,12 @@ def check_method(meth: str):
 def login_required(function):
     def wrapper(*args, **kwargs):
         try:
-            # print(f"kwargs is {kwargs}")
-            # print("request is:", str(kwargs['request']))
             request = kwargs["request"]
             if request.is_login:
                 return function(*args, **kwargs)
             else:
                 raise Unauthorized
-        except Unauthorized:
+        except Unauthorized or TypeError:  # TypeError может возникать, если не переданы cookie
             raise Unauthorized
         except Exception as ex:
             print(f"login_required error: {ex}")

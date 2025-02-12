@@ -141,6 +141,21 @@ def create_user(request: Request, client_socket):
 
 
 @check_method("POST")
+def update_user(request: Request, client_socket):
+    cursor = get_cursor()
+    if not get_school(cursor, request.data["school"]):
+        return page_400(request, client_socket)
+    cursor.execute(
+        "UPDATE users SET username = ?, password = ?, tracked = ?, school = ?, is_admin = ? WHERE username = ?",
+        (request.data["username"], encode_string(request.data["password"]), request.data.get("tracked"),
+         request.data["school"], request.data.get("is_admin"), request.data["old_pk"])
+    )
+    cursor.connection.commit()
+    response = make_response(200, "success!", "text/json", keep_alive=request.connection)
+    client_socket.sendall(response.encode("utf-8"))
+
+
+@check_method("POST")
 @login_required
 @admin_permission_required
 def create_lesson(request: Request, client_socket):
@@ -183,13 +198,15 @@ def create_timetable(request: Request, client_socket):
 @admin_permission_required
 def create_timetable_object(request: Request, client_socket):
     cursor = get_cursor()
-    if not get_lesson(cursor, request.data["lesson"]):
+    lesson = get_lesson(cursor, request.data["lesson"])
+    if not lesson:
         return page_400(request, client_socket)
     if not get_timetable(cursor, request.data["timetable"]):
         return page_400(request, client_socket)
+    cabinet = request.data.get("cabinet") if request.data.get("cabinet") else lesson[3]
     cursor.execute("INSERT INTO timetable_object (uuid, timetable, time, lesson, cabinet) VALUES(?, ?, ?, ?, ?)",
                    (generate_uuid(), request.data["timetable"], request.data["time"], request.data["lesson"],
-                    request.data.get("cabinet"))
+                    cabinet)
                    )
     cursor.connection.commit()
     response = make_response(201, "success", "text/json", request.connection)
