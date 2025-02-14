@@ -127,6 +127,20 @@ def create_school(request: Request, client_socket):
 
 
 @check_method("POST")
+@login_required
+@admin_permission_required
+def update_school(request: Request, client_socket):
+    cursor = get_cursor()
+    cursor.execute(
+        "UPDATE school SET title = ?, city = ? WHERE uuid = ?",
+        (request.data["title"], request.data["city"], request.data["old_pk"])
+    )
+    cursor.connection.commit()
+    response = make_response(200, "success!", "text/json", keep_alive=request.connection)
+    client_socket.sendall(response.encode("utf-8"))
+
+
+@check_method("POST")
 def create_user(request: Request, client_socket):
     cursor = get_cursor()
     if not get_school(cursor, request.data["school"]):
@@ -141,6 +155,7 @@ def create_user(request: Request, client_socket):
 
 
 @check_method("POST")
+@login_required
 def update_user(request: Request, client_socket):
     cursor = get_cursor()
     if not get_school(cursor, request.data["school"]):
@@ -173,6 +188,22 @@ def create_lesson(request: Request, client_socket):
 @check_method("POST")
 @login_required
 @admin_permission_required
+def update_lesson(request: Request, client_socket):
+    cursor = get_cursor()
+    if not get_school(cursor, request.data["school"]):
+        return page_400(request, client_socket)
+    cursor.execute(
+        "UPDATE lesson SET title = ?, school = ?, cabinet = ? WHERE uuid = ?",
+        (request.data["title"], request.data["school"], request.data["cabinet"], request.data["old_pk"])
+    )
+    cursor.connection.commit()
+    response = make_response(200, "success!", "text/json", keep_alive=request.connection)
+    client_socket.sendall(response.encode("utf-8"))
+
+
+@check_method("POST")
+@login_required
+@admin_permission_required
 def create_timetable(request: Request, client_socket):
     cursor = get_cursor()
     if not get_school(cursor, request.data["school"]):
@@ -196,6 +227,22 @@ def create_timetable(request: Request, client_socket):
 @check_method("POST")
 @login_required
 @admin_permission_required
+def update_timetable(request: Request, client_socket):
+    cursor = get_cursor()
+    if not get_school(cursor, request.data["school"]):
+        return page_400(request, client_socket)
+    cursor.execute(
+        "UPDATE timetable SET class = ?, school = ?, date = ? WHERE uuid = ?",
+        (request.data["class"], request.data["school"], request.data["date"], request.data["old_pk"])
+    )
+    cursor.connection.commit()
+    response = make_response(200, "success!", "text/json", keep_alive=request.connection)
+    client_socket.sendall(response.encode("utf-8"))
+
+
+@check_method("POST")
+@login_required
+@admin_permission_required
 def create_timetable_object(request: Request, client_socket):
     cursor = get_cursor()
     lesson = get_lesson(cursor, request.data["lesson"])
@@ -210,6 +257,27 @@ def create_timetable_object(request: Request, client_socket):
                    )
     cursor.connection.commit()
     response = make_response(201, "success", "text/json", request.connection)
+    client_socket.sendall(response.encode("utf-8"))
+
+
+@check_method("POST")
+@login_required
+@admin_permission_required
+def update_timetable_object(request: Request, client_socket):
+    cursor = get_cursor()
+    lesson = get_lesson(cursor, request.data["lesson"])
+    if not lesson:
+        return page_400(request, client_socket)
+    if not get_timetable(cursor, request.data["timetable"]):
+        return page_400(request, client_socket)
+    cabinet = request.data.get("cabinet") if request.data.get("cabinet") else lesson[3]
+    cursor.execute(
+        "UPDATE timetable_object SET timetable = ?, time = ?, lesson = ?, cabinet = ? WHERE uuid = ?",
+        (request.data["timetable"], request.data["time"], request.data["lesson"], cabinet,
+         request.data["old_pk"])
+    )
+    cursor.connection.commit()
+    response = make_response(200, "success!", "text/json", keep_alive=request.connection)
     client_socket.sendall(response.encode("utf-8"))
 
 

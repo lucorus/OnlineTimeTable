@@ -106,18 +106,18 @@ def get_classes(cursor, school_uuid: str) -> list:
 
 
 def get_school(cursor, uuid: str) -> tuple:
-    cursor.execute("SELECT 1 FROM school WHERE uuid = ?", (uuid, ))
+    cursor.execute("SELECT * FROM school WHERE uuid = ?", (uuid, ))
     return cursor.fetchone()
 
 
 def get_lesson(cursor, lesson_uuid):
-    cursor.execute("SELECT 1 FROM lesson WHERE uuid = ?", (lesson_uuid, ))
-    return cursor.fetchone() is not None
+    cursor.execute("SELECT * FROM lesson WHERE uuid = ?", (lesson_uuid, ))
+    return cursor.fetchone()
 
 
 def get_timetable(cursor, timetable_uuid):
-    cursor.execute("SELECT 1 FROM timetable WHERE uuid = ?", (timetable_uuid, ))
-    return cursor.fetchone() is not None
+    cursor.execute("SELECT * FROM timetable WHERE uuid = ?", (timetable_uuid, ))
+    return cursor.fetchone()
 
 
 def delete_object(cursor, field_name, field_value, table_name) -> None:

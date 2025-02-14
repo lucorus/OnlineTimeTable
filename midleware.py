@@ -26,6 +26,10 @@ def route_request(client_socket, request):
         "create_timetable_object": create_timetable_object,
 
         "update_users": update_user,
+        "update_school": update_school,
+        "update_lesson": update_lesson,
+        "update_timetable": update_timetable,
+        "update_timetable_object": update_timetable_object,
 
         "delete_object": delete_object_view,
 
