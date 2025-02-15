@@ -4,7 +4,7 @@ from base_views import page_400
 from exceptions import Unauthorized
 from utils import (make_response, check_method, encode_string, decode_string, get_cursor, generate_token,
                    login_required, admin_permission_required, Request, generate_uuid)
-from database import get_user, get_schools, get_classes, get_school, delete_object, get_lesson, get_timetable
+from database import get_user, get_schools, get_school, delete_object, get_lesson, get_timetable
 from templates import login_user_page, register_user_page, main_page
 
 
@@ -12,18 +12,31 @@ from templates import login_user_page, register_user_page, main_page
 def main(request: Request, client_socket):
     cursor = get_cursor()
     school, tracked = request.user["school"], request.user["tracked"]
-    now = datetime.datetime.now()
-
-    date = now.strftime("%d-%m-%Y")
 
     if tracked:
         cursor.execute("""
-            SELECT * FROM timetable WHERE school = ? AND class = ?
-        """, (school, tracked, ))
+        WITH RankedTimetable AS (
+            SELECT *, ROW_NUMBER() OVER (PARTITION BY timetable.school, timetable.class ORDER BY timetable.date DESC) AS rn
+            FROM timetable_object LEFT JOIN timetable ON timetable_object.timetable = timetable.uuid
+            LEFT JOIN lesson ON timetable_object.lesson = lesson.uuid
+            WHERE timetable.school = ? AND timetable.class = ?
+            )
+        SELECT *
+        FROM RankedTimetable
+        WHERE rn = 1;
+        """, (school, tracked))
     else:
         cursor.execute("""
-            SELECT * FROM timetable WHERE school = ?
-        """, (school, ))
+        WITH RankedTimetable AS (
+            SELECT *, ROW_NUMBER() OVER (PARTITION BY timetable.school, timetable.class ORDER BY timetable.date DESC) AS rn
+            FROM timetable_object LEFT JOIN timetable ON timetable_object.timetable = timetable.uuid
+            LEFT JOIN lesson ON timetable_object.lesson = lesson.uuid
+            WHERE timetable.school = ?
+            )
+        SELECT *
+        FROM RankedTimetable
+        WHERE rn = 1;
+        """, (school,))
     timetable = cursor.fetchall()
 
     page = main_page.generate_main_page(timetable)
@@ -42,7 +55,7 @@ def register(request: Request, client_socket):
         cursor = get_cursor()
         cursor.execute(
             "INSERT INTO users (username, password, tracked, school) VALUES (?, ?, ?, ?)",
-            (user_info["username"], user_info["password"], user_info["tracked"], user_info["school"])
+            (user_info["username"], user_info["password"], user_info.get("tracked"), user_info["school_uuid"])
         )
         cursor.connection.commit()
 
@@ -54,7 +67,7 @@ def register(request: Request, client_socket):
 
 
 def register_page(request: Request, client_socket):
-    response = make_response(200, register_user_page.page, keep_alive=request.connection)
+    response = make_response(200, register_user_page.generate_registration_page(get_schools(get_cursor())), keep_alive=request.connection)
     client_socket.sendall(response.encode('utf-8'))
 
 
@@ -105,12 +118,6 @@ def list_schools(request: Request, client_socket):
         client_socket.sendall(response.encode("utf-8"))
     except Exception as e:
         print(f"list_schools {e}")
-
-
-def list_classes(request: Request, client_socket):
-    classes = get_classes(get_cursor(), request.data.get("school_uuid"))
-    response = make_response(200, str(classes), "text/json", keep_alive=request.connection)
-    client_socket.sendall(response.encode("utf-8"))
 
 
 @check_method("POST")

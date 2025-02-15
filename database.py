@@ -100,11 +100,6 @@ def get_schools(cursor, city: str = None) -> list:
     return cursor.fetchall()
 
 
-def get_classes(cursor, school_uuid: str) -> list:
-    cursor.execute("SELECT class FROM timetable WHERE school = ?", (school_uuid, ))
-    return cursor.fetchall()
-
-
 def get_school(cursor, uuid: str) -> tuple:
     cursor.execute("SELECT * FROM school WHERE uuid = ?", (uuid, ))
     return cursor.fetchone()
