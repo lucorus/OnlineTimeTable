@@ -1,8 +1,11 @@
 from datetime import datetime
 
+from utils import replace_placeholders_in_html
+
 
 def generate_model_create_page(model_title, columns, instance):
     fields_html = ""
+    hidden_input = ""
     for column in columns:
         column_name = column
 
@@ -44,97 +47,22 @@ def generate_model_create_page(model_title, columns, instance):
             field_html = f'<label for="{column_name}">{column_name.capitalize()}</label><input type="text" id="{column_name}" name="{column_name}" value="{field_value}" {"required" if column_required else ""}>'
         fields_html += field_html
 
-    page = f"""
-    <!DOCTYPE html>
-    <html lang="ru">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Создать новую запись - {model_title}</title>
-        <style>
-            body {{
-                font-family: 'Arial', sans-serif;
-                background-color: #f0f2f5;
-                margin: 0;
-                padding: 0;
-                color: #333;
-            }}
-            .container {{
-                width: 80%;
-                margin: 0 auto;
-                padding: 20px;
-                background-color: #fff;
-                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-                border-radius: 8px;
-            }}
-            h1 {{
-                text-align: center;
-                color: #007bff;
-                margin-bottom: 20px;
-            }}
-            form {{
-                display: flex;
-                flex-direction: column;
-            }}
-            label {{
-                margin-bottom: 5px;
-                font-weight: bold;
-            }}
-            input, select {{
-                margin-bottom: 15px;
-                padding: 10px;
-                border: 1px solid #ddd;
-                border-radius: 5px;
-            }}
-            button {{
-                padding: 10px 20px;
-                background-color: #007bff;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                cursor: pointer;
-                transition: background-color 0.3s;
-            }}
-            button:hover {{
-                background-color: #0056b3;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>{f'Создать новую запись - {model_title}' if not instance else f'Изменить запись {instance[0]}'}</h1>
-            <form id="createForm" action="{f'/update_{model_title}' if instance else f'/create_{model_title}'}" method="post">
-                {'' if not instance else f'<input type="hidden" name="old_pk" value="{instance[0]}">'}
-                {fields_html}
-                <button type="submit">Создать</button>
-            </form>
-        </div>
-        <script>
-            document.getElementById('createForm').addEventListener('submit', function(event) {{
-                event.preventDefault();
-                const formData = new FormData(event.target);
-                const data = {{}};
-                formData.forEach((value, key) => {{
-                    data[key] = value;
-                }});
-                fetch(event.target.action, {{
-                    method: 'POST',
-                    headers: {{
-                        'Content-Type': 'application/json'
-                    }},
-                    body: JSON.stringify(data)
-                }}).then(response => response.text())
-                  .then(result => {{
-                      alert('Запись успешно создана!');
-                      window.location.reload();
-                  }})
-                  .catch(error => {{
-                      console.error('Ошибка:', error);
-                      alert('Произошла ошибка при создании записи.');
-                  }});
-            }});
-        </script>
-    </body>
-    </html>
-    """
+    if instance:
+        hidden_input = f'<input type="hidden" name="old_pk" value="{instance[0]}">'
+
+    # Путь к HTML файлу шаблона
+    template_file_path = 'templates/model_create_page.html'
+
+    # Словарь замен
+    replacements_dict = {
+        'model_title': model_title,
+        'page_title': f'Создать новую запись - {model_title}' if not instance else f'Изменить запись {instance[0]}',
+        'form_action': f'/update_{model_title}' if instance else f'/create_{model_title}',
+        'hidden_input': hidden_input,
+        'fields_html': fields_html
+    }
+
+    # Заменяем placeholders в HTML файле и получаем обновленное содержимое
+    page = replace_placeholders_in_html(template_file_path, replacements_dict)
+
     return page

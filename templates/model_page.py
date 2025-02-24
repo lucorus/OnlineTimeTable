@@ -1,3 +1,6 @@
+from utils import replace_placeholders_in_html
+
+
 def generate_model_page(model_title, objects):
     if not objects:
         return "<h1>Нет данных для отображения</h1>"
@@ -18,108 +21,30 @@ def generate_model_page(model_title, objects):
             <form action="/delete_object" method="post" style="display:inline;">
                 <input type="hidden" name="table_name" value="{model_title}">
                 <input type="hidden" name="field_value" value="{primary_key}">
-                <input type="hidden" name="field_name" value="{headers_html[4:headers_html.index('</th>')]}">
+                <input type="hidden" name="field_name" value="{headers[0][0]}">
                 <button type="submit" class="delete-btn">Удалить</button>
             </form>
             <form action="/admin/{model_title}/create" method="get" style="display:inline;">
                 <input type="hidden" name="table_name" value="{model_title}">
                 <input type="hidden" name="field_value" value="{primary_key}">
-                <input type="hidden" name="field_name" value="{headers_html[4:headers_html.index('</th>')]}">
+                <input type="hidden" name="field_name" value="{headers[0][0]}">
                 <button type="submit" class="edit-btn">Изменить</button>
             </form>
         </td>
         """
         rows_html += f"<tr>{row_html}{actions_html}</tr>"
 
-    page = f"""
-    <!DOCTYPE html>
-    <html lang="ru">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Администраторская панель - {model_title}</title>
-        <style>
-            body {{
-                font-family: 'Arial', sans-serif;
-                background-color: #f0f2f5;
-                margin: 0;
-                padding: 0;
-                color: #333;
-            }}
-            .container {{
-                width: 80%;
-                margin: 0 auto;
-                padding: 20px;
-                background-color: #fff;
-                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-                border-radius: 8px;
-            }}
-            h1 {{
-                text-align: center;
-                color: #007bff;
-                margin-bottom: 20px;
-            }}
-            table {{
-                width: 100%;
-                border-collapse: collapse;
-                margin-bottom: 20px;
-            }}
-            th, td {{
-                border: 1px solid #ddd;
-                padding: 8px;
-                text-align: left;
-            }}
-            th {{
-                background-color: #007bff;
-                color: white;
-            }}
-            tr:nth-child(even) {{
-                background-color: #f2f2f2;
-            }}
-            tr:hover {{
-                background-color: #ddd;
-            }}
-            .delete-btn, .edit-btn {{
-                padding: 5px 10px;
-                margin: 2px;
-                border: none;
-                border-radius: 5px;
-                cursor: pointer;
-                transition: background-color 0.3s;
-            }}
-            .delete-btn {{
-                background-color: #dc3545;
-                color: white;
-            }}
-            .delete-btn:hover {{
-                background-color: #c82333;
-            }}
-            .edit-btn {{
-                background-color: #ffc107;
-                color: white;
-            }}
-            .edit-btn:hover {{
-                background-color: #e0a800;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>Администраторская панель - {model_title}</h1>
-            <a href="/admin/{model_title}/create">Создать</a>
-            <table>
-                <thead>
-                    <tr>
-                        {headers_html}
-                        <th>Действия</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows_html}
-                </tbody>
-            </table>
-        </div>
-    </body>
-    </html>
-    """
+    # Путь к HTML файлу шаблона
+    template_file_path = 'templates/model_page.html'
+
+    # Словарь замен
+    replacements_dict = {
+        'model_title': model_title,
+        'headers_html': headers_html,
+        'rows_html': rows_html
+    }
+
+    # Заменяем placeholders в HTML файле и получаем обновленное содержимое
+    page = replace_placeholders_in_html(template_file_path, replacements_dict)
+
     return page

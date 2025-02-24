@@ -225,3 +225,28 @@ def decode_string(s: str) -> str:
     decoded_bytes = decoded_bytes_with_salt[config.salt_len:]
     decoded_string = decoded_bytes.decode()
     return decoded_string
+
+
+def replace_placeholders_in_html(file_path, replacements) -> str:
+    """
+    Открывает HTML файл и заменяет {% placeholder %} на значения из словаря replacements. (подобно jinja)
+
+    :param file_path: Путь к HTML файлу.
+    :param replacements: Словарь, где ключи - это placeholders, а значения - то, на что нужно заменить.
+    :return: Строка с измененным содержимым HTML файла.
+    """
+    try:
+        # Открываем файл и читаем его содержимое
+        with open(file_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+
+        # Заменяем все placeholders на значения из словаря
+        for key, value in replacements.items():
+            placeholder = f"{{% {key} %}}"
+            content = content.replace(placeholder, value)
+
+        return content
+    except FileNotFoundError:
+        print(f"Файл {file_path} не найден.")
+    except Exception as e:
+        print(f"Произошла ошибка: {e}")

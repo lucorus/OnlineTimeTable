@@ -67,7 +67,8 @@ def register(request: Request, client_socket):
 
 
 def register_page(request: Request, client_socket):
-    response = make_response(200, register_user_page.generate_registration_page(get_schools(get_cursor())), keep_alive=request.connection)
+    response = make_response(200, register_user_page.generate_registration_page(get_schools(get_cursor())),
+                             keep_alive=request.connection)
     client_socket.sendall(response.encode('utf-8'))
 
 
@@ -107,7 +108,7 @@ def login(request: Request, client_socket):
 
 
 def login_page(request: Request, client_socket):
-    response = make_response(200, login_user_page.page, keep_alive=request.connection)
+    response = make_response(200, login_user_page.generate_page(), keep_alive=request.connection)
     client_socket.sendall(response.encode('utf-8'))
 
 
